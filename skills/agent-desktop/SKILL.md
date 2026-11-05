@@ -26,7 +26,7 @@ Examples use a POSIX shell. In PowerShell, quote every ref (`'@s8f3k2p9:e1'`), b
 ## First run
 
 1. Run `agent-desktop status`. It reports the platform, permissions and `supported_surfaces`.
-2. Run `agent-desktop skills get platform`. It loads the skill for the OS the binary runs on (macOS, Windows or Linux).
+2. Run `agent-desktop skills get platform`. It loads the selected platform guide: the host desktop, or Android/iOS when `AGENT_DESKTOP_PLATFORM` selects a mobile device.
 3. For flags and syntax, run `agent-desktop <command> --help`. This skill does not repeat flag lists.
 
 ## The loop
@@ -69,6 +69,8 @@ Action results carry `data.disposition` and errors carry `error.disposition`, ea
 - `details.retryable: false` means waiting cannot change the outcome. Try a different approach.
 
 ## Headless and headed
+
+For Android and iOS, read `skills get mobile` first. Mobile ref actions dispatch Appium operations on the device and may change device focus. Desktop background-input guarantees do not apply to a phone.
 
 Ref actions are headless by default. They use semantic accessibility calls and do not take focus, move the cursor, synthesize keys or use the clipboard. If no semantic path exists, the action fails closed. Use the global `--headed` flag only when the user explicitly permits physical input, such as double-click, hover, drag, or focus. Never switch to headed mode to recover from a headless failure. Raw coordinates (`--xy`) never imply focus. Which actions need `--headed` differs by OS: read the platform skill.
 

@@ -18,12 +18,12 @@ in examples and verification scenarios, never in runtime special cases.
 
 ## Commands
 
-Each platform adapter compiles only on its own OS and the workspace names all three, so an unscoped `cargo build`,
+Each native desktop adapter compiles only on its own OS and the workspace names all three, so an unscoped `cargo build`,
 `cargo test --workspace` or `cargo clippy --all-targets` fails on every host. Scope cargo to the host's package set,
 the same set `.githooks/pre-commit` uses:
 
 ```bash
-HOST_PKGS=(-p agent-desktop-core -p agent-desktop-macos -p agent-desktop -p agent-desktop-ffi)
+HOST_PKGS=(-p agent-desktop-core -p agent-desktop-mobile -p agent-desktop-macos -p agent-desktop -p agent-desktop-ffi)
 # Windows: replace agent-desktop-macos with agent-desktop-windows. Linux: with agent-desktop-linux.
 # An array expands to separate arguments in both bash and zsh; a plain string does not in zsh.
 
@@ -98,6 +98,7 @@ crates/core/     agent-desktop-core: PlatformAdapter trait in adapter/, shared t
 crates/macos/    agent-desktop-macos: AX API
 crates/windows/  agent-desktop-windows: UI Automation
 crates/linux/    agent-desktop-linux: AT-SPI
+crates/mobile/   agent-desktop-mobile: Android UiAutomator2 and iOS XCUITest through Appium
 crates/ffi/      agent-desktop-ffi: cdylib and the committed C header include/agent_desktop.h
 src/             agent-desktop binary: cli/, cli_args/, dispatch/, batch/, command_policy/,
                  diagnostic/, visual_debug/, mcp/
@@ -112,9 +113,10 @@ apps/docs/       Geistdocs site served at agent-browser.dev/desktop as a Vercel 
 - Core never imports a platform crate, and platform crates never import each other. CI fails if
   `cargo tree -p agent-desktop-core` names a platform crate.
 - Only two crates wire a platform to core: the binary (`src/`) and the FFI crate.
-- The platform is chosen at compile time by `#[cfg(target_os)]` in `build_adapter()` (`src/main.rs`,
-  `crates/ffi/src/adapter.rs`) with target-gated dependencies in `src/Cargo.toml`
-  (`[target.'cfg(target_os = "macos")'.dependencies]`), never unconditional dependencies behind source `cfg`s.
+- Native desktop adapters are selected by `#[cfg(target_os)]` with target-gated dependencies in `src/Cargo.toml`
+  and `crates/ffi/Cargo.toml`. The portable mobile adapter is an unconditional dependency of those wiring crates.
+  `AGENT_DESKTOP_PLATFORM=android|ios` selects it at runtime; without that variable the host adapter remains the default.
+  Mobile transport and device-specific behavior stay in `crates/mobile`, never in core.
 - `PlatformAdapter` is split across `crates/core/src/adapter/` (`mod.rs` plus the `actions`, `input`, `observation` and
   `system` fragments). Every method defaults to `AdapterError::not_supported`, so an adapter implements only what it
   supports. Strict resolution (`resolve_element_strict*`) returns `STALE_REF` for zero matches and `AMBIGUOUS_TARGET`

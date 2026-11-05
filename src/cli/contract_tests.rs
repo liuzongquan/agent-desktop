@@ -139,7 +139,7 @@ fn ci_windows_lane_gates_the_full_package_surface() {
     let workflow = include_str!("../../.github/workflows/ci.yml").replace("\r\n", "\n");
 
     assert!(workflow.contains(
-        "cargo clippy --locked -p agent-desktop-core -p agent-desktop-windows \
+        "cargo clippy --locked -p agent-desktop-core -p agent-desktop-mobile -p agent-desktop-windows \
          -p agent-desktop -p agent-desktop-ffi --all-targets -- -D warnings"
     ));
     assert!(workflow.contains("--edges', 'normal,build,dev"));

@@ -41,6 +41,8 @@ const SKILL_LINUX_REF_SHELL: &str = include_str!(
 const SKILL_LINUX_REF_TROUBLESHOOTING: &str =
     include_str!("../../../../skills/agent-desktop-linux/references/troubleshooting.md");
 
+const SKILL_MOBILE_MAIN: &str = include_str!("../../../../skills/agent-desktop-mobile/SKILL.md");
+
 const SKILL_JEV_MAIN: &str = include_str!("../../../../skills/jev-desktop/SKILL.md");
 
 const SKILL_FFI_MAIN: &str = include_str!("../../../../skills/agent-desktop-ffi/SKILL.md");
@@ -202,6 +204,14 @@ const SKILLS: &[Skill] = &[
         refs: SKILL_LINUX_REFS,
     },
     Skill {
+        canonical: "agent-desktop-mobile",
+        aliases: &["mobile", "android", "ios", "agent-desktop-mobile"],
+        summary: "Android and iOS through an existing Appium session: setup, touch input, refs, and platform limits.",
+        platform: Some("mobile"),
+        main: SKILL_MOBILE_MAIN,
+        refs: &[],
+    },
+    Skill {
         canonical: "agent-desktop-ffi",
         aliases: &["ffi", "agent-desktop-ffi"],
         summary: "Embedding agent-desktop in another process via the C ABI. Build/link, error propagation, handle ownership, threading rules.",
@@ -226,6 +236,7 @@ pub struct GetArgs {
 }
 
 pub fn list() -> Result<Value, AppError> {
+    let platform = configured_platform()?;
     let entries: Vec<Value> = SKILLS
         .iter()
         .map(|s| {
@@ -235,9 +246,9 @@ pub fn list() -> Result<Value, AppError> {
                 "summary": s.summary,
                 "references": s.refs.iter().map(|r| r.rel_path).collect::<Vec<_>>(),
             });
-            if let Some(platform) = s.platform {
-                entry["platform"] = json!(platform);
-                entry["current"] = json!(CURRENT_PLATFORM == Some(platform));
+            if let Some(skill_platform) = s.platform {
+                entry["platform"] = json!(skill_platform);
+                entry["current"] = json!(platform == Some(skill_platform));
             }
             entry
         })
@@ -310,15 +321,40 @@ fn find_skill(name: &str) -> Result<&'static Skill, AppError> {
 }
 
 fn platform_skill() -> Result<&'static Skill, AppError> {
+    let platform = configured_platform()?;
     SKILLS
         .iter()
-        .find(|s| s.platform.is_some() && s.platform == CURRENT_PLATFORM)
+        .find(|s| s.platform.is_some() && s.platform == platform)
         .ok_or_else(|| {
             AppError::invalid_input_with_suggestion(
                 "This build's operating system has no platform skill yet",
                 "Use `agent-desktop skills get desktop`; it covers the loop on every OS",
             )
         })
+}
+
+fn configured_platform() -> Result<Option<&'static str>, AppError> {
+    match std::env::var("AGENT_DESKTOP_PLATFORM") {
+        Ok(value) => selected_platform(Some(&value)),
+        Err(std::env::VarError::NotPresent) => selected_platform(None),
+        Err(_) => Err(AppError::invalid_input(
+            "AGENT_DESKTOP_PLATFORM must be Unicode",
+        )),
+    }
+}
+
+fn selected_platform(value: Option<&str>) -> Result<Option<&'static str>, AppError> {
+    match value {
+        None | Some("desktop") => Ok(CURRENT_PLATFORM),
+        Some(value)
+            if value.eq_ignore_ascii_case("android") || value.eq_ignore_ascii_case("ios") =>
+        {
+            Ok(Some("mobile"))
+        }
+        Some(_) => Err(AppError::invalid_input(
+            "AGENT_DESKTOP_PLATFORM must be android, ios, or desktop",
+        )),
+    }
 }
 
 fn matches_ref(rel_path: &str, query: &str) -> bool {

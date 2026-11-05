@@ -11,6 +11,7 @@ fn list_returns_known_skills() {
     assert!(arr.iter().any(|s| s["name"] == "agent-desktop-windows"));
     assert!(arr.iter().any(|s| s["name"] == "agent-desktop-macos"));
     assert!(arr.iter().any(|s| s["name"] == "agent-desktop-linux"));
+    assert!(arr.iter().any(|s| s["name"] == "agent-desktop-mobile"));
 }
 
 #[test]
@@ -259,6 +260,8 @@ fn shipped_first_time_setup_names_every_platform() {
         section.contains("Linux"),
         "setup must keep its Linux branch"
     );
+    assert!(section.contains("Android"));
+    assert!(section.contains("iOS"));
 }
 
 fn first_time_setup_section(document: &str) -> String {
@@ -271,4 +274,37 @@ fn first_time_setup_section(document: &str) -> String {
         .map(|offset| offset + 1)
         .unwrap_or(rest.len());
     rest[..end].to_owned()
+}
+
+#[test]
+fn mobile_skill_aliases_share_the_mobile_guide() {
+    for name in ["mobile", "android", "ios", "agent-desktop-mobile"] {
+        let result = get(GetArgs {
+            name: name.into(),
+            full: false,
+            reference: None,
+        })
+        .unwrap();
+        assert_eq!(result["skill"], "agent-desktop-mobile");
+        assert!(
+            result["content"]
+                .as_str()
+                .unwrap()
+                .contains("AGENT_DESKTOP_APPIUM_SESSION_ID")
+        );
+    }
+}
+
+#[test]
+fn configured_platform_selects_mobile_and_rejects_typos() {
+    for value in ["android", "ios", "Android", "iOS"] {
+        assert_eq!(selected_platform(Some(value)).unwrap(), Some("mobile"));
+    }
+    assert_eq!(selected_platform(None).unwrap(), CURRENT_PLATFORM);
+    assert_eq!(
+        selected_platform(Some("desktop")).unwrap(),
+        CURRENT_PLATFORM
+    );
+    assert!(selected_platform(Some("")).is_err());
+    assert!(selected_platform(Some("andriod")).is_err());
 }

@@ -35,7 +35,7 @@ pub fn execute_with_report_with_context(
         .map(|manifest| manifest.artifacts);
 
     let mut body = json!({
-        "platform": std::env::consts::OS,
+        "platform": adapter.platform_name(),
         "version": env!("CARGO_PKG_VERSION"),
         "permissions": permissions,
         "snapshot_id": snapshot_id,

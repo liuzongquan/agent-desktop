@@ -15,7 +15,9 @@ agent-desktop permissions
 - On Windows, there is no permission dialog for same-integrity targets. Input into an elevated target needs an equally elevated terminal.
 - On Linux, there is no permission dialog. The session needs a running AT-SPI bus and `status` must report `accessibility` as `granted`. Run the tool in the same desktop session as the target app. If `status` reports it denied, read the bus section of the Linux skill.
 
-Then run `agent-desktop skills get platform` for the details of your OS.
+- On Android and iOS, configure an existing native Appium session before automation. Read `agent-desktop skills get mobile` for the environment variables and device limits.
+
+Then run `agent-desktop skills get platform` for the details of your selected platform.
 
 ## Dense app: skeleton, drill, act, verify
 

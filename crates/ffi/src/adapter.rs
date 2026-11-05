@@ -106,6 +106,9 @@ fn build_adapter() -> Result<Box<dyn PlatformAdapter>, AdapterError> {
 
 #[cfg(not(feature = "stub-adapter"))]
 fn build_adapter() -> Result<Box<dyn PlatformAdapter>, AdapterError> {
+    if let Some(adapter) = agent_desktop_mobile::MobileAdapter::from_env()? {
+        return Ok(Box::new(adapter));
+    }
     #[cfg(target_os = "macos")]
     {
         agent_desktop_macos::ensure_cocoa_multithreaded()?;

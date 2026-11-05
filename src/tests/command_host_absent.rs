@@ -54,7 +54,7 @@ fn spawn_renamed_copy(tmpdir: &Path, name: &str, marked: bool, args: &[&str]) ->
         .env("TMPDIR", tmpdir)
         .env("AGENT_DESKTOP_HOME", tmpdir.join("home"))
         .env_remove(MARKER)
-        .stdin(Stdio::null())
+        .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     if marked {
@@ -109,8 +109,8 @@ fn commands_never_reach_or_remove_a_command_host_socket() {
 fn a_call_stops_marked_processes_under_any_name_and_leaves_others_running() {
     let _lock = HOST_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmpdir = private_dir("marker");
-    let mut marked = spawn_renamed_copy(&tmpdir, "renamed-host", true, &["wait", "10000"]);
-    let mut unmarked = spawn_renamed_copy(&tmpdir, "ordinary-copy", false, &["wait", "10000"]);
+    let mut marked = spawn_renamed_copy(&tmpdir, "renamed-host", true, &["mcp"]);
+    let mut unmarked = spawn_renamed_copy(&tmpdir, "ordinary-copy", false, &["mcp"]);
 
     run(&["version"], &tmpdir);
 

@@ -39,7 +39,7 @@ fn main() -> ExitCode {
 }
 
 fn run_command() -> ExitCode {
-    if let Some(result) = build_adapter().run_cursor_overlay_child() {
+    if let Some(result) = build_native_adapter().run_cursor_overlay_child() {
         return if result.is_ok() {
             ExitCode::SUCCESS
         } else {
@@ -260,8 +260,8 @@ fn execute_with_adapter(
         return Err(pre_dispatch_error(bootstrap_error.into()));
     }
 
-    let adapter = build_adapter();
-    let adapter: &dyn agent_desktop_core::PlatformAdapter = &adapter;
+    let adapter = build_adapter().map_err(|error| pre_dispatch_error(error.into()))?;
+    let adapter = adapter.as_ref();
     let report = if command_policy::requires_permission_report(&cmd) {
         match deadline
             .map_or_else(agent_desktop_core::Deadline::standard, Ok)
@@ -349,7 +349,14 @@ fn emit_response(response: &impl serde::Serialize) -> std::io::Result<()> {
     writer.flush()
 }
 
-fn build_adapter() -> impl agent_desktop_core::PlatformAdapter {
+fn build_adapter() -> Result<Box<dyn agent_desktop_core::PlatformAdapter>, AdapterError> {
+    if let Some(adapter) = agent_desktop_mobile::MobileAdapter::from_env()? {
+        return Ok(Box::new(adapter));
+    }
+    Ok(Box::new(build_native_adapter()))
+}
+
+fn build_native_adapter() -> impl agent_desktop_core::PlatformAdapter {
     #[cfg(target_os = "macos")]
     {
         agent_desktop_macos::MacOSAdapter::new()
