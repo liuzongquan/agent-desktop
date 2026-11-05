@@ -8,6 +8,10 @@ use crate::{
 };
 
 pub trait SystemOps: Send + Sync {
+    fn platform_name(&self) -> &'static str {
+        std::env::consts::OS
+    }
+
     fn update_cursor_overlay(&self, _control: &CursorOverlayControl) -> Result<(), AdapterError> {
         Err(AdapterError::not_supported("update_cursor_overlay"))
     }

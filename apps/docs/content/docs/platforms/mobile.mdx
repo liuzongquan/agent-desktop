@@ -1,0 +1,147 @@
+---
+title: Android and iOS
+navTitle: Android and iOS
+description: Connect the existing agent-desktop CLI, MCP tools, and C library to a native Appium session on Android or iOS.
+---
+
+Set `AGENT_DESKTOP_PLATFORM` to `android` or `ios` to use the existing commands with a phone, emulator, or simulator. The host binary connects to Appium; it is not installed on the device. CLI arguments, MCP tool names, JSON envelopes, and C function signatures stay the same.
+
+This adapter is available when you build this checkout. Follow [Installation](/desktop/installation) to build the host binary. The commands below assume that binary is on `PATH`.
+
+## Prepare Appium
+
+Install Appium and the driver matching your device. Android needs the SDK, Java, and an authorized device visible in `adb devices`; follow the [UiAutomator2 setup guide](https://appium.io/docs/en/latest/quickstart/uiauto2-driver/). iOS needs macOS, Xcode, and a configured simulator or a signed WebDriverAgent on a development device; follow the [XCUITest setup guide](https://appium.github.io/appium-xcuitest-driver/latest/).
+
+Install only the driver you need, then start the server in a separate terminal:
+
+```bash
+npm install -g appium
+appium driver install uiautomator2    # Android
+appium driver install xcuitest       # iOS, on macOS
+appium --address 127.0.0.1 --port 4723
+```
+
+The examples below use a POSIX shell, `curl`, and `jq`. On Windows, use a POSIX shell or create the session with your Appium client and set variables with PowerShell's `$env:NAME = 'value'` syntax. A remote Appium host must have the device toolchain; the agent-desktop host does not need it.
+
+## Create one session
+
+Create the session once and reuse its ID across agent-desktop processes. The Appium session is separate from an agent-desktop `--session`, which namespaces saved snapshots and traces. `session start` does not start Appium.
+
+For Android, replace `your_android_device_id` with the ID from `adb devices`. This example opens Android Settings:
+
+```bash
+export AGENT_DESKTOP_PLATFORM=android
+export AGENT_DESKTOP_APPIUM_URL=http://127.0.0.1:4723
+mobile_session_response=$(curl -fsS "$AGENT_DESKTOP_APPIUM_URL/session" \
+  -H 'Content-Type: application/json' --data-binary @- <<'JSON'
+{
+  "capabilities": {
+    "alwaysMatch": {
+      "platformName": "Android",
+      "appium:automationName": "UiAutomator2",
+      "appium:udid": "your_android_device_id",
+      "appium:appPackage": "com.android.settings",
+      "appium:appActivity": ".Settings",
+      "appium:noReset": true,
+      "appium:newCommandTimeout": 3600
+    }
+  }
+}
+JSON
+)
+mobile_session_id=$(printf '%s' "$mobile_session_response" | jq -er '.value.sessionId')
+export AGENT_DESKTOP_APPIUM_SESSION_ID="$mobile_session_id"
+```
+
+For iOS, replace `your_ios_device_id` with your configured device or simulator UDID. This example opens iOS Settings. Real devices may need additional signing capabilities from the XCUITest setup guide.
+
+```bash
+export AGENT_DESKTOP_PLATFORM=ios
+export AGENT_DESKTOP_APPIUM_URL=http://127.0.0.1:4723
+mobile_session_response=$(curl -fsS "$AGENT_DESKTOP_APPIUM_URL/session" \
+  -H 'Content-Type: application/json' --data-binary @- <<'JSON'
+{
+  "capabilities": {
+    "alwaysMatch": {
+      "platformName": "iOS",
+      "appium:automationName": "XCUITest",
+      "appium:udid": "your_ios_device_id",
+      "appium:bundleId": "com.apple.Preferences",
+      "appium:noReset": true,
+      "appium:newCommandTimeout": 3600
+    }
+  }
+}
+JSON
+)
+mobile_session_id=$(printf '%s' "$mobile_session_response" | jq -er '.value.sessionId')
+export AGENT_DESKTOP_APPIUM_SESSION_ID="$mobile_session_id"
+```
+
+Check that `jq` returned a session ID before continuing. If creation failed, fix the Appium error first. Use your app's package/activity or bundle ID to open a different app. The [Appium capability reference](https://appium.io/docs/en/latest/guides/caps/) explains device and driver selection.
+
+## Observe, act, and verify
+
+```bash
+agent-desktop skills get platform
+agent-desktop status
+agent-desktop list-apps
+agent-desktop snapshot -i
+```
+
+Use a qualified ref from that snapshot for the next action. The following ref is illustrative; replace it with the actual returned ref:
+
+```bash
+agent-desktop click '@s8f3k2p9:e1'
+agent-desktop snapshot -i
+```
+
+Appium actions affect the device's current UI and may change focus. Use independent observation after each action; a completed dispatch does not establish that the application reached your intended state. Keep the session in `NATIVE_APP` context. Coordinate other Appium clients so they do not navigate or interact during a command.
+
+Refs are scoped to the Appium endpoint, session, and observed application. Take a new snapshot after switching devices or sessions. The mobile adapter re-identifies controls before input, and refuses missing or ambiguous matches with the existing error codes.
+
+## Configuration
+
+<table>
+  <thead><tr><th>Variable</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td><code>AGENT_DESKTOP_PLATFORM</code></td><td><code>android</code> or <code>ios</code>. Unset it or use <code>desktop</code> for the host desktop.</td></tr>
+    <tr><td><code>AGENT_DESKTOP_APPIUM_URL</code></td><td>Server base URL, default <code>http://127.0.0.1:4723</code>. Include any configured base path, such as <code>/wd/hub</code>.</td></tr>
+    <tr><td><code>AGENT_DESKTOP_APPIUM_SESSION_ID</code></td><td>Required ID of an existing native session. agent-desktop does not own or close the session.</td></tr>
+  </tbody>
+</table>
+
+For MCP, put these variables in the MCP server process environment; child command processes inherit them. For C callers, set them before `ad_adapter_create()` or `ad_adapter_create_with_session()`. Existing desktop clients need no changes when the variables are unset.
+
+Mobile process IDs identify the Appium endpoint, session, and app; they are not OS process IDs. Take fresh snapshots after app launch, termination, or restart. To isolate a restarted app from all earlier refs, start a new Appium session.
+
+## Platform limits
+
+The mobile adapter exposes the device UI through the existing `window` surface. Appium device coordinates are used for touch input.
+
+<table>
+  <thead><tr><th>Group</th><th>Mobile behavior</th></tr></thead>
+  <tbody>
+    <tr><td>Observation</td><td><code>snapshot</code>, <code>find</code>, <code>get</code>, <code>is</code>, and tree-based waits use the current native app tree.</td></tr>
+    <tr><td>Element input</td><td><code>click</code>, <code>double-click</code>, <code>type</code>, <code>set-value</code>, <code>clear</code>, <code>focus</code>, and checked-state actions use Appium element operations. <code>focus</code> is limited to text fields. <code>double-click</code> requires <code>--headed</code>.</td></tr>
+    <tr><td>Scroll</td><td><code>scroll</code> acts on a container. <code>scroll-to</code> requires an already visible element; scroll the container and take a fresh snapshot for hidden content.</td></tr>
+    <tr><td>Apps and windows</td><td><code>list-apps</code> and <code>list-windows</code> expose the foreground app and one device window with synthetic IDs, not an inventory of installed or background apps. <code>launch</code> and <code>close-app</code> use a package or bundle ID. Launching a different app requires <code>--activate</code>; closing requires <code>--force</code> because Appium terminates the app.</td></tr>
+    <tr><td>Capture and clipboard</td><td><code>list-displays</code> exposes one device display. Device screenshots and text clipboard operations are available through Appium. Screenshot PNG dimensions can differ from touch coordinates because of display scaling. Clipboard access depends on the device and driver permissions.</td></tr>
+    <tr><td>Keyboard</td><td><code>press</code> sends characters and common navigation keys through WebDriver. Android also supports Back, Home, and AppSwitch. A ref target must be the focused text field.</td></tr>
+    <tr><td>Coordinates</td><td><code>--headed mouse-click</code> taps the device; <code>--headed drag</code> swipes. Neither moves the host cursor.</td></tr>
+  </tbody>
+</table>
+
+Desktop window management, notifications, and desktop system surfaces have no corresponding mobile implementation and return structured unsupported errors. Read `agent-desktop skills get mobile` for the supported command groups and input requirements.
+
+## Verify on a device
+
+Run the observe-act-verify sequence on both a native settings screen and a second application with editable text. Check the visible result of taps, typing, scrolling, and screenshots. Then change or remove a previously observed control and confirm its old ref fails instead of acting on a different control. Repeat on Android and iOS; mocked protocol tests do not replace this device check.
+
+When finished, delete only the Appium session you created:
+
+```bash
+curl -fsS -X DELETE \
+  "$AGENT_DESKTOP_APPIUM_URL/session/$AGENT_DESKTOP_APPIUM_SESSION_ID"
+unset AGENT_DESKTOP_PLATFORM AGENT_DESKTOP_APPIUM_URL AGENT_DESKTOP_APPIUM_SESSION_ID
+```

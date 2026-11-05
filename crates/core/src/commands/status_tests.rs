@@ -11,6 +11,10 @@ impl ActionOps for DeniedAdapter {}
 impl InputOps for DeniedAdapter {}
 
 impl SystemOps for DeniedAdapter {
+    fn platform_name(&self) -> &'static str {
+        "android"
+    }
+
     fn permission_report(
         &self,
         _deadline: crate::Deadline,
@@ -39,6 +43,7 @@ fn status_uses_precomputed_permission_report() {
     let value =
         execute_with_report_with_context(&DeniedAdapter, &report, &CommandContext::default())
             .unwrap();
+    assert_eq!(value["platform"], "android");
     let permissions = value.get("permissions").unwrap();
 
     assert_eq!(permissions["accessibility"]["state"], "granted");

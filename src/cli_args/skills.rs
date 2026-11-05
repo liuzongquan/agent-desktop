@@ -8,7 +8,7 @@ markdown is in data.content.
 
 Start here:
   agent-desktop skills get desktop            # Core guide, any OS
-  agent-desktop skills get platform           # Guide for the OS you run on
+  agent-desktop skills get platform           # Guide for the selected platform
 
 More:
   agent-desktop skills                        # List skills
@@ -32,7 +32,9 @@ pub(crate) enum SkillsAction {
 
 #[derive(Args, Debug)]
 pub(crate) struct SkillsGetArgs {
-    #[arg(help = "Skill name or alias: desktop, platform, macos, windows, linux, ffi, jev")]
+    #[arg(
+        help = "Skill name or alias: desktop, platform, macos, windows, linux, mobile, android, ios, ffi, jev"
+    )]
     pub name: String,
     #[arg(
         help = "Reference filename (e.g. workflows or references/workflows.md). Omit for the main guide."

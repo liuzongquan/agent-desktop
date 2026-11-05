@@ -1,6 +1,6 @@
 # agent-desktop
 
-Computer use for AI agents: see and operate desktop apps on macOS, Windows, and Linux through the OS accessibility tree.
+Computer use for AI agents: see and operate desktop apps on macOS, Windows, and Linux, plus Android and iOS apps through Appium.
 
 <p>
   <a href="https://vercel.com/labs#labs-products"><img alt="Vercel Labs Product" src="https://img.shields.io/badge/LABS-PRODUCT-0a0a0a.svg?style=for-the-badge&amp;logo=Vercel&amp;labelColor=000000" height="28"></a>
@@ -86,7 +86,7 @@ The full walkthrough is in the [quick start](https://agent-browser.dev/desktop/q
   <img alt="The calling agent runs the agent-desktop CLI or the C library. Both go through agent-desktop-core and the PlatformAdapter trait to one platform crate, chosen at compile time, which reads the target app through the AX API on macOS, UI Automation on Windows, or AT-SPI on Linux." src="assets/architecture-light.png" width="720">
 </picture>
 
-Your agent calls the CLI, or the C library in process. Both run the same core, which reaches the OS only through `PlatformAdapter`. Each binary is built for one OS and talks to that OS's accessibility API.
+Your agent calls the CLI, or the C library in process. Both run the same core, which reaches the OS only through `PlatformAdapter`. Each binary uses its host OS accessibility API by default. Set `AGENT_DESKTOP_PLATFORM` to `android` or `ios` to route the same commands through the mobile adapter and an existing Appium session.
 
 ## For AI agents
 
@@ -146,8 +146,29 @@ agent-desktop has 60 command names, 56 operational commands. The other four (`ke
 | [macOS](https://agent-browser.dev/desktop/platforms/macos) | macOS 13 or later, Intel or Apple Silicon | AX API |
 | [Windows](https://agent-browser.dev/desktop/platforms/windows) | Windows 10 1809 or later, x64 or ARM64 | UI Automation |
 | [Linux](https://agent-browser.dev/desktop/platforms/linux) | Ubuntu 24.04 or later, x86_64 or aarch64, X11 or Wayland | AT-SPI |
+| [Android](apps/docs/content/docs/platforms/mobile.mdx) | Appium with UiAutomator2 and an authorized device or emulator | UiAutomator2 |
+| [iOS](apps/docs/content/docs/platforms/mobile.mdx) | Appium with XCUITest on macOS, plus a configured device or simulator | XCTest |
 
 Each platform page lists what works headless, what needs `--headed`, and what refuses.
+
+## Android and iOS
+
+The mobile adapter keeps the existing CLI commands, MCP tools, JSON envelopes, and C ABI. Build this checkout to use it; these changes do not publish a new npm release.
+
+```bash
+cargo build --release -p agent-desktop
+export PATH="$PWD/target/release:$PATH"
+export AGENT_DESKTOP_PLATFORM=android
+export AGENT_DESKTOP_APPIUM_URL=http://127.0.0.1:4723
+export AGENT_DESKTOP_APPIUM_SESSION_ID=your_existing_appium_session_id
+agent-desktop skills get platform
+agent-desktop status
+agent-desktop snapshot -i
+```
+
+Use `ios` for an XCUITest session. Android uses UiAutomator2. The Appium server owns device access and the session; agent-desktop attaches to it across commands and does not create or delete it. iOS automation requires a Mac running Xcode and the XCUITest driver, even when agent-desktop runs on another host.
+
+See [Android and iOS setup](apps/docs/content/docs/platforms/mobile.mdx) for creating a session, supported operations, and device-test instructions. Unsupported desktop operations keep their command names and return structured errors. Unset `AGENT_DESKTOP_PLATFORM`, or set it to `desktop`, to return to the host desktop.
 
 ## C library
 

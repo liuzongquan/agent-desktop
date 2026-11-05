@@ -19,7 +19,7 @@ import subprocess
 import sys
 import tempfile
 
-PLATFORMS = ("macos", "windows", "linux")
+PLATFORMS = ("macos", "windows", "linux", "mobile")
 PLATFORM_PACKAGES = {f"agent-desktop-{p}" for p in PLATFORMS}
 WIRING_PACKAGES = {"agent-desktop", "agent-desktop-ffi"}
 TOP_PACKAGES = {"agent-desktop", "agent-desktop-ffi"}
